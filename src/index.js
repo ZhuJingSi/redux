@@ -10,6 +10,10 @@ import __DO_NOT_USE__ActionTypes from './utils/actionTypes'
  * This is a dummy function to check if the function name has been altered by minification.
  * If the function has been minified and NODE_ENV !== 'production', warn the user.
  */
+/**
+ * 这是个测试函数，用来检测用户是否在非生产环境开启了代码压缩
+ * 如果错误地开启了压缩，就告警提示
+ */
 function isCrushed() {}
 
 if (
@@ -25,7 +29,9 @@ if (
       'to ensure you have the correct code for your production build.'
   )
 }
-
+/**
+ * 对外暴露以下几个核心 API
+ */
 export {
   createStore,
   combineReducers,

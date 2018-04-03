@@ -8,7 +8,9 @@
  * from right to left. For example, compose(f, g, h) is identical to doing
  * (...args) => f(g(h(...args))).
  */
-
+/**
+ * 函数按参数顺序从右到左依次链式调用
+ */
 export default function compose(...funcs) {
   if (funcs.length === 0) {
     return arg => arg

@@ -29,6 +29,9 @@ import isPlainObject from './utils/isPlainObject'
  * and subscribe to changes.
  */
 export default function createStore(reducer, preloadedState, enhancer) {
+  /**
+   * 没有初始化 state 时，enhancer 高阶函数可以直接作为第二个参数传入
+   */
   if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
     enhancer = preloadedState
     preloadedState = undefined
@@ -38,7 +41,9 @@ export default function createStore(reducer, preloadedState, enhancer) {
     if (typeof enhancer !== 'function') {
       throw new Error('Expected the enhancer to be a function.')
     }
-
+    /**
+     * enhancer 是一个高阶函数，返回加强版 createStore
+     */
     return enhancer(createStore)(reducer, preloadedState)
   }
 
@@ -52,6 +57,9 @@ export default function createStore(reducer, preloadedState, enhancer) {
   let nextListeners = currentListeners
   let isDispatching = false
 
+  /**
+   * 保存一份订阅快照 currentListeners
+   */
   function ensureCanMutateNextListeners() {
     if (nextListeners === currentListeners) {
       nextListeners = currentListeners.slice()
@@ -63,7 +71,13 @@ export default function createStore(reducer, preloadedState, enhancer) {
    *
    * @returns {any} The current state tree of your application.
    */
+  /**
+   * @returns {any} 返回当前 state
+   */
   function getState() {
+    /**
+     * reducer 内部不允许调用 getState
+     */
     if (isDispatching) {
       throw new Error(
         'You may not call store.getState() while the reducer is executing. ' +
@@ -98,11 +112,31 @@ export default function createStore(reducer, preloadedState, enhancer) {
    * @param {Function} listener A callback to be invoked on every dispatch.
    * @returns {Function} A function to remove this change listener.
    */
+
+   /**
+    * 添加一个监听函数，将在每次 dispatch 时被调用，这时 state 可能有了一些变化，
+    * 可以在监听函数中使用 `getState()` 获取最新 state
+    * 
+    * 可以在 listener 内部调用 dispatch，但要注意：
+    * 
+    * 1. 订阅器（subscriptions） 在每次 dispatch 调用之前就会保存一份快照。
+    * 当你在正在调用监听器（listener）的时候订阅(subscribe)或者去掉订阅（unsubscribe），
+    * 对当前的 dispatch 不会有任何影响。但是对于下一次的 dispatch，无论嵌套与否，
+    * 都会使用订阅列表里最近的一次快照。
+    * 
+    * 2. 订阅器不应该关注所有 state 的变化，在订阅器被调用之前，往往由于嵌套的 dispatch 
+    * 导致 state 发生多次的改变，我们应该保证所有的监听都注册在 dispath 之前。
+    * 
+    * @param {Function} listener 监听函数
+    * @returns {Function} 移除监听函数的函数
+    */
   function subscribe(listener) {
     if (typeof listener !== 'function') {
       throw new Error('Expected the listener to be a function.')
     }
-
+    /**
+     * reducer 内部不允许调用 subscribe
+     */
     if (isDispatching) {
       throw new Error(
         'You may not call store.subscribe() while the reducer is executing. ' +
@@ -121,7 +155,9 @@ export default function createStore(reducer, preloadedState, enhancer) {
       if (!isSubscribed) {
         return
       }
-
+      /**
+       * reducer 内部不允许 unsubscribe
+       */
       if (isDispatching) {
         throw new Error(
           'You may not unsubscribe from a store listener while the reducer is executing. ' +
@@ -162,6 +198,20 @@ export default function createStore(reducer, preloadedState, enhancer) {
    * Note that, if you use a custom middleware, it may wrap `dispatch()` to
    * return something else (for example, a Promise you can await).
    */
+
+  /**
+   * dispatch 方法是触发 state 变化的唯一途径
+   * 
+   * 其中会调用 reducer 去创建 store，reducer 接收“当前 state 树”和“具体 action”，
+   * 并返回一份新的 state 树，并执行所有的监听函数
+   * 
+   * @param {Object} action action 参数只能是一个普通对象，
+   * 如果想要传入复杂对象，需要使用相应 enhancer 包裹 createStore 做一些中间操作
+   * （最终还是会改为传入一个 plain object）
+   * 
+   * @returns {Object} 返回与传入 action 一摸一样的对象
+   * 如果使用了中间件，它可能会魔改 dispatch，使返回值变成其它东西
+   */
   function dispatch(action) {
     if (!isPlainObject(action)) {
       throw new Error(
@@ -169,26 +219,41 @@ export default function createStore(reducer, preloadedState, enhancer) {
           'Use custom middleware for async actions.'
       )
     }
-
+    /**
+     * action 一定要有 type 字段
+     */
     if (typeof action.type === 'undefined') {
       throw new Error(
         'Actions may not have an undefined "type" property. ' +
           'Have you misspelled a constant?'
       )
     }
-
+    /**
+     * 若 isDispatching === true
+     * 说明在 reducer 执行过程中再次触发了 dispatch
+     * 是不被允许的
+     */
     if (isDispatching) {
       throw new Error('Reducers may not dispatch actions.')
     }
 
     try {
+      /**
+       * 开始执行 reducer
+       */
       isDispatching = true
       currentState = currentReducer(currentState, action)
     } finally {
+      /**
+       * 标志 reducer 执行结束
+       */
       isDispatching = false
     }
 
     const listeners = (currentListeners = nextListeners)
+    /**
+     * 遍历执行每一个监听函数
+     */
     for (let i = 0; i < listeners.length; i++) {
       const listener = listeners[i]
       listener()
@@ -207,6 +272,12 @@ export default function createStore(reducer, preloadedState, enhancer) {
    * @param {Function} nextReducer The reducer for the store to use instead.
    * @returns {void}
    */
+  /**
+   * 替换当前 reducer
+   * 
+   * 在需要实现代码分离和动态加载 reducer 的时候可能需要用到，
+   * 在使用 redux 热加载机制的时候也可能用到
+   */
   function replaceReducer(nextReducer) {
     if (typeof nextReducer !== 'function') {
       throw new Error('Expected the nextReducer to be a function.')
@@ -221,6 +292,9 @@ export default function createStore(reducer, preloadedState, enhancer) {
    * @returns {observable} A minimal observable of state changes.
    * For more information, see the observable proposal:
    * https://github.com/tc39/proposal-observable
+   */
+  /**
+   * observable 的简单支持
    */
   function observable() {
     const outerSubscribe = subscribe
@@ -237,7 +311,9 @@ export default function createStore(reducer, preloadedState, enhancer) {
         if (typeof observer !== 'object') {
           throw new TypeError('Expected the observer to be an object.')
         }
-
+        /**
+         * 向流中推出当前 state
+         */
         function observeState() {
           if (observer.next) {
             observer.next(getState())
@@ -258,6 +334,9 @@ export default function createStore(reducer, preloadedState, enhancer) {
   // When a store is created, an "INIT" action is dispatched so that every
   // reducer returns their initial state. This effectively populates
   // the initial state tree.
+  /**
+   * 初始化 state 树
+   */
   dispatch({ type: ActionTypes.INIT })
 
   return {

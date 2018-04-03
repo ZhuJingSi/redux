@@ -2,6 +2,9 @@ import ActionTypes from './utils/actionTypes'
 import warning from './utils/warning'
 import isPlainObject from './utils/isPlainObject'
 
+/**
+ * reducer 不允许返回 undefined
+ */
 function getUndefinedStateErrorMessage(key, action) {
   const actionType = action && action.type
   const actionDescription =
@@ -13,7 +16,9 @@ function getUndefinedStateErrorMessage(key, action) {
     `If you want this reducer to hold no value, you can return null instead of undefined.`
   )
 }
-
+/**
+ * 各种情况的报错信息
+ */
 function getUnexpectedStateShapeWarningMessage(
   inputState,
   reducers,
@@ -41,7 +46,9 @@ function getUnexpectedStateShapeWarningMessage(
       `keys: "${reducerKeys.join('", "')}"`
     )
   }
-
+  /**
+   * 找出 state 树中的没有对应 reducer 的状态
+   */
   const unexpectedKeys = Object.keys(inputState).filter(
     key => !reducers.hasOwnProperty(key) && !unexpectedKeyCache[key]
   )
@@ -67,6 +74,10 @@ function assertReducerShape(reducers) {
     const reducer = reducers[key]
     const initialState = reducer(undefined, { type: ActionTypes.INIT })
 
+    /**
+     * reducer 不能返回 undefined，实在不行也要返回初始 state
+     * 初始 state 可以是 null
+     */
     if (typeof initialState === 'undefined') {
       throw new Error(
         `Reducer "${key}" returned undefined during initialization. ` +
@@ -115,9 +126,15 @@ function assertReducerShape(reducers) {
  * @returns {Function} A reducer function that invokes every reducer inside the
  * passed object, and builds a state object with the same shape.
  */
+/**
+ * 把一个由多个不同 reducer 函数合并成一个最终的 reducer 函数
+ */
 export default function combineReducers(reducers) {
   const reducerKeys = Object.keys(reducers)
   const finalReducers = {}
+  /**
+   * 筛选出类型正确的 reducer
+   */
   for (let i = 0; i < reducerKeys.length; i++) {
     const key = reducerKeys[i]
 
@@ -138,13 +155,19 @@ export default function combineReducers(reducers) {
     unexpectedKeyCache = {}
   }
 
+  /**
+   * 看看 reducer 对 undefined 有没有处理好
+   */
   let shapeAssertionError
   try {
     assertReducerShape(finalReducers)
   } catch (e) {
     shapeAssertionError = e
   }
-
+  /**
+   * 当来了一个 action 时，遍历有效 reducer 一一执行，
+   * 如果状态树中有任何变化，就返回新的状态树
+   */
   return function combination(state = {}, action) {
     if (shapeAssertionError) {
       throw shapeAssertionError

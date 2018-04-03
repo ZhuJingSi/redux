@@ -25,6 +25,12 @@ function bindActionCreator(actionCreator, dispatch) {
  * function as `actionCreators`, the return value will also be a single
  * function.
  */
+/**
+ * 把 action 转为同名 key 的对象，且使用 dispatch 把每个 action 包围起来调用
+ * 
+ * 惟一使用 bindActionCreators 的场景是当你需要把 action creator 往下传到一个组件上，
+ * 却不想让这个组件觉察到 Redux 的存在，而且不希望把 Redux store 或 dispatch 传给它
+ */
 export default function bindActionCreators(actionCreators, dispatch) {
   if (typeof actionCreators === 'function') {
     return bindActionCreator(actionCreators, dispatch)
